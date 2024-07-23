@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import './App.css';
 import Footer from './modules/Footer/Footer';
 import NewTaskForm from './modules/NewTaskForm/NewTaskForm';
@@ -6,21 +6,46 @@ import TaskList from './modules/TaskList/TaskList';
 
 function App() {
   const [tasks, setTasks] = useState([]);
-  const [filterTasks, setFilterTasks] = useState([]);
+  const [filter, setFilter] = useState('');
+
+  const isTaskPending = tasks.some((task) => task.status === 'pending');
 
   useEffect(() => {
-    setFilterTasks(tasks);
-  }, [tasks]);
+    if (isTaskPending) {
+      let timer = setInterval(() => {
+        setTasks((prev) => {
+          return prev.map((task) => {
+            if (task.status === 'pending') {
+              if (task.sec <= 0) {
+                return { ...task, status: 'done' };
+              }
+              return { ...task, sec: task.sec - 1 };
+            }
+            return task;
+          });
+        });
+      }, 1000);
 
-  function filtered(condition) {
-    if (condition === 'active') {
-      setFilterTasks(tasks.filter((task) => task.done === false));
-    } else if (condition === 'completed') {
-      setFilterTasks(tasks.filter((task) => task.done === true));
-    } else {
-      setFilterTasks(tasks);
+      return function () {
+        clearInterval(timer);
+      };
     }
-  }
+  }, [isTaskPending]);
+
+  const filteredTasks = useMemo(() => {
+    if (filter === '') {
+      return tasks;
+    }
+    return tasks.filter((task) => {
+      if (filter === 'active' && task.status !== 'done') {
+        return true;
+      }
+      if (filter === 'completed' && task.status === 'done') {
+        return true;
+      }
+      return false;
+    });
+  }, [tasks, filter]);
 
   return (
     <>
@@ -30,9 +55,9 @@ function App() {
           <NewTaskForm setTasks={setTasks} />
         </header>
         <section className="main">
-          <TaskList tasks={tasks} setTasks={setTasks} filterTasks={filterTasks} />
+          <TaskList tasks={filteredTasks} setTasks={setTasks} />
         </section>
-        <Footer filtered={filtered} filterTasks={filterTasks} setTasks={setTasks} />
+        <Footer filter={filter} setFilter={setFilter} setTasks={setTasks} filteredTasks={filteredTasks} />
       </section>
     </>
   );
